@@ -171,4 +171,5 @@ func RunWorker(task *Task, hostname string, masterHostname string, nOps int) {
 	go worker.acceptMultipleConnections()
 
 	<-worker.done
+	time.Sleep(retryDuration)
 }
