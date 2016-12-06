@@ -60,7 +60,9 @@ func mergeMapLocal(task *Task, mapCounter int) {
 	var (
 		err              error
 		file             *os.File
+		fileArray		 []*os.File
 		fileDecoder      *json.Decoder
+		fileDecoderArray []*json.Decoder
 		mergeFile        *os.File
 		mergeFileEncoder *json.Encoder
 	)
@@ -71,6 +73,9 @@ func mergeMapLocal(task *Task, mapCounter int) {
 		}
 
 		mergeFileEncoder = json.NewEncoder(mergeFile)
+
+		fileArray = make([]*os.File, mapCounter)
+		fileDecoderArray = make([]*json.Decoder, mapCounter)
 
 		for m := 0; m < mapCounter; m++ {
 			for i := 0; i < OPEN_FILE_MAX_RETRY; i++ {
@@ -89,25 +94,72 @@ func mergeMapLocal(task *Task, mapCounter int) {
 				log.Fatal(err)
 			}
 
+			fileArray[m] = file
+
+
 			fileDecoder = json.NewDecoder(file)
 
-			for {
-				var kv KeyValue
-				err = fileDecoder.Decode(&kv)
-				if err != nil {
+			fileDecoderArray[m] = fileDecoder
+		}
+
+		endedFiles := 0
+		endedFilesFlags := make([]bool, mapCounter)
+
+		kvArray := make([]KeyValue, mapCounter)
+
+		//Colocar todos os valores me um array
+		for i := 0; i < mapCounter; i++ {
+			err = fileDecoderArray[i].Decode(&kvArray[i])
+			if err != nil {
+				endedFilesFlags[i] = true
+				endedFiles++
+			}
+		}
+
+		//Enquanto todos os arquivos nao terminarem
+		for endedFiles < mapCounter{
+			var menor string
+			var posic int
+
+			//Procura o menor
+			for i := 0; i < mapCounter; i++ {
+				if !endedFilesFlags[i] {
+					posic = i
+					menor = kvArray[i].Key
 					break
 				}
-
-				mergeFileEncoder.Encode(&kv)
 			}
-			file.Sync()
-			file.Close()
+
+			for i := posic + 1; i < mapCounter; i++ {
+				if kvArray[i].Key < menor && !endedFilesFlags[i] {
+					posic = i 
+					menor =  kvArray[i].Key
+				}
+			}
+
+			//Adiciona ao arquivo final
+			mergeFileEncoder.Encode(&kvArray[posic])
+
+			//repor a posicao que foi ocupada
+			err = fileDecoderArray[posic].Decode(&kvArray[posic])
+			if err != nil {
+				endedFilesFlags[posic] = true
+				endedFiles++
+			}
+
+		}
+
+		//Close files
+		for i := 0; i < mapCounter; i++ {
+			fileArray[i].Sync()
+			fileArray[i].Close()
 		}
 
 		mergeFile.Sync()
 		mergeFile.Close()
 	}
 }
+
 
 // Merge the result from all the map operations by reduce job id.
 func mergeReduceLocal(reduceCounter int) {
@@ -150,7 +202,7 @@ func mergeReduceLocal(reduceCounter int) {
 				break
 			}
 
-			mergeFileEncoder.Encode(&kv)
+			mergeFileEncoder.Encode(&kv.Key)
 		}
 		file.Sync()
 		file.Close()

@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	"github.com/pauloaguiar/ces27-lab1-part2/mapreduce"
+	"ces27-lab1-part2/mapreduce"
 	"log"
 	"os"
 	"strconv"

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/pauloaguiar/ces27-lab1-part2/mapreduce"
+	"ces27-lab1-part2/mapreduce"
 	"os"
 	"strconv"
 	"testing"
